@@ -1,11 +1,10 @@
 """
-Alerta de voz + Bips estilo polícia
+Alerta de voz - Versão para Linux (Render)
 """
 
 import os
 import time
 import tempfile
-import winsound
 from gtts import gTTS
 
 class VoiceAlert:
@@ -23,51 +22,25 @@ class VoiceAlert:
                     import playsound
                     playsound.playsound(tmp.name)
                 except:
-                    os.system(f'start {tmp.name}')
+                    os.system(f'play {tmp.name} 2>/dev/null || echo "🔊 {texto}"')
                 os.unlink(tmp.name)
         except Exception as e:
             print(f"🔊 {texto} (modo texto)")
     
     def alertar_entrada(self, ativo, direcao, horario):
-        """Alerta de entrada com voz"""
         mensagem = f"Preparar... {ativo} {direcao}... {horario}"
         self.falar(mensagem)
-        
-        # Bip de confirmação
-        try:
-            winsound.Beep(800, 300)
-            time.sleep(0.1)
-            winsound.Beep(1000, 300)
-        except:
-            pass
     
     def alertar_confirmacao(self, ativo, direcao, preco):
-        """Confirmação do sinal"""
         mensagem = f"Sinal confirmado... {ativo} {direcao}"
         self.falar(mensagem)
         print(f"✅ SINAL CONFIRMADO! {ativo} {direcao}")
     
     def alerta_15_segundos(self, ativo, direcao):
-        """Alerta disparado 15 segundos antes da entrada"""
         print("\n" + "=" * 70)
         print("🚨🚨🚨 15 SEGUNDOS PARA A ENTRADA! 🚨🚨🚨")
         print("=" * 70)
         
-        # Bips rápidos
-        for i in range(5):
-            try:
-                winsound.Beep(1000, 150)
-            except:
-                pass
-            time.sleep(0.15)
-        
-        # Bip forte
-        try:
-            winsound.Beep(1500, 400)
-        except:
-            pass
-        
-        # Voz
         mensagem = f"Atenção... {ativo} {direcao}... em quinze segundos"
         self.falar(mensagem)
         
@@ -75,33 +48,15 @@ class VoiceAlert:
         print("=" * 70)
     
     def alertar_resultado(self, ativo, direcao, resultado, preco_entrada, preco_saida, ganho_percentual):
-        """Alerta de WIN ou LOSS após fechamento da vela"""
-        
         print("\n" + "=" * 70)
         print("📊 RESULTADO DA OPERAÇÃO")
         print("=" * 70)
         
         if resultado == "WIN":
             print("🎉 OPERAÇÃO GANHA!")
-            # Som de vitória
-            try:
-                winsound.Beep(523, 200)
-                time.sleep(0.1)
-                winsound.Beep(659, 200)
-                time.sleep(0.1)
-                winsound.Beep(784, 300)
-            except:
-                pass
             mensagem = f"{ativo} {direcao}... Ganhou... {ganho_percentual:.2f} por cento"
         else:
             print("😞 OPERAÇÃO PERDIDA")
-            # Som de perda
-            try:
-                winsound.Beep(440, 300)
-                time.sleep(0.1)
-                winsound.Beep(349, 300)
-            except:
-                pass
             mensagem = f"{ativo} {direcao}... Perdeu"
         
         self.falar(mensagem)
