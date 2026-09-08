@@ -1,6 +1,5 @@
 """
-AGENTE ESTUDIOSO - VERSÃO SIMPLIFICADA
-SEM PANDAS, SEM NUMPY
+AGENTE ESTUDIOSO - VERSÃO RENDER
 """
 
 import os
@@ -79,18 +78,15 @@ class RoboTrader:
         global alerta_disparado, entrada_confirmada, resultado_mostrado
         global ultimo_sinal_tempo
         
-        # Gera sinais simulados para teste
         agora = datetime.now()
         horario = agora.strftime("%H:%M")
         
-        # Arredonda para o próximo minuto múltiplo de 5
         minuto_atual = int(agora.strftime("%M"))
         minuto_arredondado = ((minuto_atual // 5) + 1) * 5
         if minuto_arredondado >= 60:
             minuto_arredondado = 0
         horario_arredondado = f"{agora.strftime('%H')}:{minuto_arredondado:02d}"
         
-        # Escolhe um ativo aleatório
         ativo = random.choice(ATIVOS)
         timeframe = random.choice(TIMEFRAMES)
         direcao = random.choice(["COMPRA", "VENDA"])
@@ -180,7 +176,6 @@ class RoboTrader:
         if minutos_passados > int(timeframe_entrada) + 1:
             resultado_mostrado = True
             
-            # Simula resultado
             ganho = random.uniform(-2.0, 3.0)
             resultado = "WIN" if ganho > 0 else "LOSS"
             
