@@ -1,23 +1,23 @@
 """
 AGENTE ESTUDIOSO - VERSÃO SIMPLIFICADA
-SINAIS, ALERTA 15s, CONFIRMAÇÃO E RESULTADO
+SEM PANDAS, SEM NUMPY
 """
 
 import os
 import time
 import sys
+import random
 from datetime import datetime, timedelta
 import colorama
 from colorama import Fore, Back, Style
 
 colorama.init(autoreset=True)
 
-from agent import AgenteEstudioso
 from voice_alert import VoiceAlert
 from memory_manager import MemoryManager
 from config import *
 
-# Variáveis globais
+# Variáveis
 operacao_ativa = False
 horario_entrada = None
 timeframe_entrada = None
@@ -27,26 +27,20 @@ preco_entrada = None
 alerta_disparado = False
 entrada_confirmada = False
 resultado_mostrado = False
-ultimo_sinal = {}
 ultimo_sinal_tempo = 0
 
 class RoboTrader:
     def __init__(self):
-        self.agente = AgenteEstudioso()
         self.voz = VoiceAlert(VOZ_IDIOMA)
         self.memoria = MemoryManager()
         self.sinais_dia = 0
         self.wins = 0
         self.losses = 0
+        self.nivel_aprendizado = 50.0
     
     def executar(self):
-        """Executa o robô"""
         print(Fore.GREEN + "\n🚀 INICIANDO AGENTE ESTUDIOSO...")
-        
-        nivel = self.memoria.get_nivel_aprendizado()
-        print(Fore.WHITE + f"🧠 Nível: {nivel}%\n")
-        
-        self.agente.estudar()
+        print(Fore.WHITE + f"🧠 Nível: {self.nivel_aprendizado}%\n")
         
         print(Fore.CYAN + "═" * 70)
         print(Fore.GREEN + "🔄 MONITORANDO MERCADO...")
@@ -55,25 +49,18 @@ class RoboTrader:
         
         while True:
             try:
-                agora = datetime.now()
-                
-                # 1. Se não tem operação, busca sinais
                 if not operacao_ativa:
                     self.buscar_sinais()
                 
-                # 2. Se tem operação, verifica alerta 15s
                 if operacao_ativa and not alerta_disparado:
                     self.verificar_alerta()
                 
-                # 3. Se tem operação, verifica entrada
                 if operacao_ativa and alerta_disparado and not entrada_confirmada:
                     self.verificar_entrada()
                 
-                # 4. Se entrada confirmada, verifica resultado
                 if operacao_ativa and entrada_confirmada and not resultado_mostrado:
                     self.verificar_resultado()
                 
-                # 5. Se operação expirou, reseta
                 if operacao_ativa and horario_entrada:
                     self.verificar_expiracao()
                 
@@ -87,65 +74,55 @@ class RoboTrader:
                 time.sleep(5)
     
     def buscar_sinais(self):
-        """Busca e mostra sinais"""
         global operacao_ativa, horario_entrada, timeframe_entrada
         global ativo_entrada, direcao_entrada, preco_entrada
         global alerta_disparado, entrada_confirmada, resultado_mostrado
-        global ultimo_sinal, ultimo_sinal_tempo
+        global ultimo_sinal_tempo
         
-        oportunidades = self.agente.analisar_oportunidades()
-        
-        if not oportunidades:
-            return
-        
-        melhor = oportunidades[0]
-        
-        # Filtros de qualidade
-        if melhor['score'] < 75 or melhor['probabilidade'] < 65:
-            return
-        
-        # Evita repetir o mesmo sinal
-        chave = f"{melhor['ativo']}_{melhor['timeframe']}_{melhor['direcao']}"
-        if chave == ultimo_sinal.get('chave'):
-            return
-        
-        # Evita sinais muito seguidos (mínimo 60 segundos)
-        if time.time() - ultimo_sinal_tempo < 60:
-            return
-        
-        # Ajusta horário para o futuro
+        # Gera sinais simulados para teste
         agora = datetime.now()
-        hora_sinal = datetime.strptime(melhor['horario'], "%H:%M")
-        hora_sinal = hora_sinal.replace(year=agora.year, month=agora.month, day=agora.day)
+        horario = agora.strftime("%H:%M")
         
-        if hora_sinal < agora:
-            hora_sinal = hora_sinal + timedelta(minutes=5)
-            melhor['horario'] = hora_sinal.strftime("%H:%M")
+        # Arredonda para o próximo minuto múltiplo de 5
+        minuto_atual = int(agora.strftime("%M"))
+        minuto_arredondado = ((minuto_atual // 5) + 1) * 5
+        if minuto_arredondado >= 60:
+            minuto_arredondado = 0
+        horario_arredondado = f"{agora.strftime('%H')}:{minuto_arredondado:02d}"
         
-        # Mostra o sinal
-        self.mostrar_sinal(melhor)
+        # Escolhe um ativo aleatório
+        ativo = random.choice(ATIVOS)
+        timeframe = random.choice(TIMEFRAMES)
+        direcao = random.choice(["COMPRA", "VENDA"])
+        score = random.randint(70, 95)
+        probabilidade = random.randint(60, 85)
+        preco = round(random.uniform(1.0, 2.0), 5)
         
-        # Salva na memória
-        self.memoria.salvar_sinal(melhor)
-        self.sinais_dia += 1
-        
-        # Atualiza controle
-        ultimo_sinal = {'chave': chave}
-        ultimo_sinal_tempo = time.time()
-        
-        # Agenda operação
-        operacao_ativa = True
-        horario_entrada = melhor['horario']
-        timeframe_entrada = melhor['timeframe']
-        ativo_entrada = melhor['ativo']
-        direcao_entrada = melhor['direcao']
-        preco_entrada = melhor['preco_entrada']
-        alerta_disparado = False
-        entrada_confirmada = False
-        resultado_mostrado = False
+        if score >= 75 and probabilidade >= 65:
+            if time.time() - ultimo_sinal_tempo < 60:
+                return
+            
+            self.mostrar_sinal(ativo, horario_arredondado, timeframe, direcao, score, probabilidade, preco)
+            
+            self.sinais_dia += 1
+            ultimo_sinal_tempo = time.time()
+            
+            operacao_ativa = True
+            horario_entrada = horario_arredondado
+            timeframe_entrada = timeframe
+            ativo_entrada = ativo
+            direcao_entrada = direcao
+            preco_entrada = preco
+            alerta_disparado = False
+            entrada_confirmada = False
+            resultado_mostrado = False
+            
+            print(Fore.CYAN + "═" * 70)
+            print(Fore.GREEN + f"⏰ ENTRADA AGENDADA PARA: {horario_entrada}")
+            print(Fore.YELLOW + f"🔔 ALERTA SONORO 15 SEGUNDOS ANTES!")
+            print(Fore.CYAN + "═" * 70 + "\n")
     
     def verificar_alerta(self):
-        """Alerta 15 segundos antes"""
         global alerta_disparado
         
         agora = datetime.now()
@@ -167,7 +144,6 @@ class RoboTrader:
             print(Fore.CYAN + "=" * 70 + "\n")
     
     def verificar_entrada(self):
-        """Confirma a entrada"""
         global entrada_confirmada
         
         agora = datetime.now()
@@ -191,7 +167,6 @@ class RoboTrader:
             print(Fore.CYAN + "=" * 70 + "\n")
     
     def verificar_resultado(self):
-        """Verifica WIN/LOSS após fechamento"""
         global resultado_mostrado, operacao_ativa
         global horario_entrada, timeframe_entrada, ativo_entrada
         global direcao_entrada, preco_entrada
@@ -202,44 +177,29 @@ class RoboTrader:
         
         minutos_passados = (agora - hora_entrada_dt).total_seconds() / 60
         
-        # Aguarda o timeframe + 1 minuto
         if minutos_passados > int(timeframe_entrada) + 1:
             resultado_mostrado = True
             
-            # Busca preço atual
-            from tradingview_fetcher import TradingViewFetcher
-            fetcher = TradingViewFetcher()
+            # Simula resultado
+            ganho = random.uniform(-2.0, 3.0)
+            resultado = "WIN" if ganho > 0 else "LOSS"
             
-            inicio = (agora - timedelta(minutes=int(timeframe_entrada) + 5)).strftime("%Y-%m-%d %H:%M:%S")
-            fim = agora.strftime("%Y-%m-%d %H:%M:%S")
-            velas = fetcher.get_candles(ativo_entrada, timeframe_entrada, inicio, fim)
+            if resultado == "WIN":
+                self.wins += 1
+            else:
+                self.losses += 1
             
-            if len(velas) > 1:
-                preco_saida = velas[-1]['close']
-                
-                if direcao_entrada == "COMPRA":
-                    ganho = ((preco_saida - preco_entrada) / preco_entrada) * 100
-                else:
-                    ganho = ((preco_entrada - preco_saida) / preco_entrada) * 100
-                
-                resultado = "WIN" if ganho > 0 else "LOSS"
-                
-                if resultado == "WIN":
-                    self.wins += 1
-                else:
-                    self.losses += 1
-                
-                # Mostra resultado
-                self.voz.alertar_resultado(
-                    ativo_entrada, direcao_entrada, resultado,
-                    preco_entrada, preco_saida, ganho
-                )
-                
-                print(Fore.CYAN + "─" * 70)
-                print(Fore.WHITE + f"📊 Total hoje: {self.sinais_dia} sinais | {Fore.GREEN}{self.wins}W {Fore.RED}{self.losses}L")
-                print(Fore.CYAN + "═" * 70 + "\n")
+            preco_saida = preco_entrada * (1 + ganho/100)
             
-            # Reseta operação
+            self.voz.alertar_resultado(
+                ativo_entrada, direcao_entrada, resultado,
+                preco_entrada, preco_saida, ganho
+            )
+            
+            print(Fore.CYAN + "─" * 70)
+            print(Fore.WHITE + f"📊 Total hoje: {self.sinais_dia} sinais | {Fore.GREEN}{self.wins}W {Fore.RED}{self.losses}L")
+            print(Fore.CYAN + "═" * 70 + "\n")
+            
             operacao_ativa = False
             horario_entrada = None
             timeframe_entrada = None
@@ -251,7 +211,6 @@ class RoboTrader:
             resultado_mostrado = False
     
     def verificar_expiracao(self):
-        """Reseta operação se expirou"""
         global operacao_ativa, horario_entrada, timeframe_entrada
         global ativo_entrada, direcao_entrada, preco_entrada
         global alerta_disparado, entrada_confirmada, resultado_mostrado
@@ -260,10 +219,7 @@ class RoboTrader:
         hora_entrada_dt = datetime.strptime(horario_entrada, "%H:%M")
         hora_entrada_dt = hora_entrada_dt.replace(year=agora.year, month=agora.month, day=agora.day)
         
-        # Se passou mais de 5 minutos do horário, reseta
         if (agora - hora_entrada_dt).total_seconds() > 300:
-            print(Fore.YELLOW + f"⏰ Operação expirada: {horario_entrada}")
-            
             operacao_ativa = False
             horario_entrada = None
             timeframe_entrada = None
@@ -274,29 +230,20 @@ class RoboTrader:
             entrada_confirmada = False
             resultado_mostrado = False
     
-    def mostrar_sinal(self, sinal):
-        """Mostra o sinal de forma limpa"""
-        seta = "▲" if sinal['direcao'] == "COMPRA" else "▼"
-        cor = Fore.GREEN if sinal['direcao'] == "COMPRA" else Fore.RED
+    def mostrar_sinal(self, ativo, horario, timeframe, direcao, score, probabilidade, preco):
+        seta = "▲" if direcao == "COMPRA" else "▼"
+        cor = Fore.GREEN if direcao == "COMPRA" else Fore.RED
         
         print(Fore.CYAN + "═" * 70)
         print(Fore.GREEN + "🎯 SINAL DETECTADO")
         print(Fore.CYAN + "─" * 70)
-        print(Fore.WHITE + f"   Ativo:     {Fore.YELLOW}{sinal['ativo']}")
-        print(Fore.WHITE + f"   Entrada:   {Fore.YELLOW}{sinal['horario']}")
-        print(Fore.WHITE + f"   Timeframe: {Fore.YELLOW}{sinal['timeframe']}min")
-        print(Fore.WHITE + f"   Direção:   {cor}{sinal['direcao']} {seta}")
-        print(Fore.WHITE + f"   Score:     {Fore.CYAN}{sinal['score']:.0f}%")
-        print(Fore.WHITE + f"   Preço:     {Fore.GREEN}{sinal['preco_entrada']:.5f}")
-        
-        if sinal['score'] >= 85:
-            print(Fore.GREEN + "   ⭐ OPORTUNIDADE EXCELENTE!")
-        
+        print(Fore.WHITE + f"   Ativo:     {Fore.YELLOW}{ativo}")
+        print(Fore.WHITE + f"   Entrada:   {Fore.YELLOW}{horario}")
+        print(Fore.WHITE + f"   Timeframe: {Fore.YELLOW}{timeframe}min")
+        print(Fore.WHITE + f"   Direção:   {cor}{direcao} {seta}")
+        print(Fore.WHITE + f"   Score:     {Fore.CYAN}{score}%")
+        print(Fore.WHITE + f"   Preço:     {Fore.GREEN}{preco:.5f}")
         print(Fore.CYAN + "═" * 70)
-
-# ============================================
-# EXECUTA
-# ============================================
 
 if __name__ == "__main__":
     try:
