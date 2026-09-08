@@ -1,11 +1,12 @@
 """
-AGENTE ESTUDIOSO - VERSÃO RENDER
+AGENTE ESTUDIOSO - VERSÃO RENDER COM TELEGRAM
 """
 
 import os
 import time
 import sys
 import random
+import requests
 from datetime import datetime, timedelta
 import colorama
 from colorama import Fore, Back, Style
@@ -15,6 +16,25 @@ colorama.init(autoreset=True)
 from voice_alert import VoiceAlert
 from memory_manager import MemoryManager
 from config import *
+
+# ============================================
+# CONFIGURAÇÃO DO TELEGRAM
+# ============================================
+TOKEN_TELEGRAM = os.environ.get("TOKEN_TELEGRAM", "")
+CHAT_ID = os.environ.get("CHAT_ID", "")
+# ============================================
+
+def enviar_telegram(mensagem):
+    """Envia mensagem para seu Telegram"""
+    if not TOKEN_TELEGRAM or not CHAT_ID:
+        print("⚠️ Telegram não configurado")
+        return
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage"
+        requests.post(url, json={"chat_id": CHAT_ID, "text": mensagem}, timeout=5)
+        print(f"📱 Mensagem enviada para Telegram")
+    except Exception as e:
+        print(f"❌ Erro ao enviar Telegram: {e}")
 
 # Variáveis
 operacao_ativa = False
@@ -40,6 +60,12 @@ class RoboTrader:
     def executar(self):
         print(Fore.GREEN + "\n🚀 INICIANDO AGENTE ESTUDIOSO...")
         print(Fore.WHITE + f"🧠 Nível: {self.nivel_aprendizado}%\n")
+        
+        if TOKEN_TELEGRAM and CHAT_ID:
+            print(Fore.GREEN + "📱 TELEGRAM CONFIGURADO!")
+            enviar_telegram("🤖 ROBÔ INICIADO! Monitorando mercado...")
+        else:
+            print(Fore.RED + "⚠️ Telegram NÃO configurado!")
         
         print(Fore.CYAN + "═" * 70)
         print(Fore.GREEN + "🔄 MONITORANDO MERCADO...")
@@ -67,6 +93,7 @@ class RoboTrader:
                 
             except KeyboardInterrupt:
                 print(Fore.RED + "\n\n🛑 PARANDO...")
+                enviar_telegram("🛑 Robô parado manualmente")
                 break
             except Exception as e:
                 print(Fore.RED + f"❌ Erro: {e}")
@@ -99,6 +126,14 @@ class RoboTrader:
                 return
             
             self.mostrar_sinal(ativo, horario_arredondado, timeframe, direcao, score, probabilidade, preco)
+            
+            # ============================================
+            # ENVIA PARA TELEGRAM
+            # ============================================
+            seta = "🟢" if direcao == "COMPRA" else "🔴"
+            msg = f"🎯 SINAL DETECTADO!\n📊 {ativo}\n⏰ {horario_arredondado}\n📈 {timeframe}min\n{seta} {direcao}\n⭐ Score: {score}%\n💰 {preco:.5f}"
+            enviar_telegram(msg)
+            # ============================================
             
             self.sinais_dia += 1
             ultimo_sinal_tempo = time.time()
@@ -157,6 +192,14 @@ class RoboTrader:
             
             self.voz.alertar_confirmacao(ativo_entrada, direcao_entrada, preco_entrada)
             
+            # ============================================
+            # ENVIA CONFIRMAÇÃO PARA TELEGRAM
+            # ============================================
+            seta = "🟢" if direcao_entrada == "COMPRA" else "🔴"
+            msg = f"✅ ENTRADA CONFIRMADA!\n📊 {ativo_entrada} {seta} {direcao_entrada}\n💰 {preco_entrada:.5f}"
+            enviar_telegram(msg)
+            # ============================================
+            
             print(Fore.WHITE + f"   📊 {ativo_entrada} {direcao_entrada}")
             print(Fore.WHITE + f"   💰 Preço: {preco_entrada:.5f}")
             print(Fore.WHITE + f"   ⏰ Horário: {horario_entrada}")
@@ -190,6 +233,14 @@ class RoboTrader:
                 ativo_entrada, direcao_entrada, resultado,
                 preco_entrada, preco_saida, ganho
             )
+            
+            # ============================================
+            # ENVIA RESULTADO PARA TELEGRAM
+            # ============================================
+            emoji = "🎉" if resultado == "WIN" else "😞"
+            msg = f"{emoji} {resultado}!\n📊 {ativo_entrada} {direcao_entrada}\n💰 Ganho: {ganho:.2f}%\n📊 W/L: {self.wins}/{self.losses}"
+            enviar_telegram(msg)
+            # ============================================
             
             print(Fore.CYAN + "─" * 70)
             print(Fore.WHITE + f"📊 Total hoje: {self.sinais_dia} sinais | {Fore.GREEN}{self.wins}W {Fore.RED}{self.losses}L")
