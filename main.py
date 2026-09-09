@@ -20,7 +20,7 @@ from config import *
 # ============================================
 # CONFIGURAÇÃO DO TELEGRAM (JÁ COLOCADO!)
 # ============================================
-TOKEN_TELEGRAM = "8785154240:AAF98bdQh0EsObh_O062bqx65KQpRv8ZovY"
+TOKEN_TELEGRAM = "8505784675:AAFc0V-KyhhVThxSSAaBfrDtNDI5ed3ilo0"
 CHAT_ID = "999294230"
 # ============================================
 
