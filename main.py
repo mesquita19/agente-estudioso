@@ -1,5 +1,6 @@
 """
-AGENTE ESTUDIOSO - VERSÃO RENDER COM TELEGRAM
+AGENTE ESTUDIOSO - VERSÃO COMPLETA
+COM RESULTADOS, ESTATÍSTICAS E RESET DIÁRIO
 """
 
 import os
@@ -7,6 +8,7 @@ import time
 import sys
 import random
 import requests
+import json
 from datetime import datetime, timedelta
 import colorama
 from colorama import Fore, Back, Style
@@ -18,23 +20,127 @@ from memory_manager import MemoryManager
 from config import *
 
 # ============================================
-# CONFIGURAÇÃO DO TELEGRAM (JÁ COLOCADO!)
+# CONFIGURAÇÃO DO TELEGRAM
 # ============================================
-TOKEN_TELEGRAM = "8505784675:AAFc0V-KyhhVThxSSAaBfrDtNDI5ed3ilo0"
-CHAT_ID = "999294230"
+TOKEN_TELEGRAM = "8505784675:AAFc0V-KyhhVThxSSAaBfrDtNDI5ed3ilo0"  # SUBSTITUA PELO SEU NOVO TOKEN!
+CHAT_ID = "999294230"            # SUBSTITUA PELO SEU CHAT_ID!
 # ============================================
 
 def enviar_telegram(mensagem):
     """Envia mensagem para seu Telegram"""
     try:
         url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage"
-        resposta = requests.post(url, json={"chat_id": CHAT_ID, "text": mensagem}, timeout=5)
-        if resposta.status_code == 200:
-            print("📱 Mensagem enviada para Telegram com sucesso!")
-        else:
-            print(f"❌ Erro ao enviar: {resposta.status_code}")
+        requests.post(url, json={"chat_id": CHAT_ID, "text": mensagem}, timeout=5)
     except Exception as e:
-        print(f"❌ Erro: {e}")
+        print(f"❌ Erro Telegram: {e}")
+
+# ============================================
+# ESTATÍSTICAS DO ROBÔ
+# ============================================
+class Estatisticas:
+    def __init__(self):
+        self.dia = datetime.now().strftime("%Y-%m-%d")
+        self.total_sinais = 0
+        self.wins = 0
+        self.losses = 0
+        self.winrate = 0.0
+        self.sequencia_wins = 0
+        self.sequencia_losses = 0
+        self.maior_sequencia_wins = 0
+        self.maior_sequencia_losses = 0
+        self.ganho_total = 0.0
+        self.ultimo_resultado = None
+        self.historico = []
+    
+    def resetar_diario(self):
+        """Reseta estatísticas no final do dia"""
+        hoje = datetime.now().strftime("%Y-%m-%d")
+        if hoje != self.dia:
+            # Salva histórico do dia anterior
+            if self.total_sinais > 0:
+                self.historico.append({
+                    'dia': self.dia,
+                    'sinais': self.total_sinais,
+                    'wins': self.wins,
+                    'losses': self.losses,
+                    'winrate': self.winrate
+                })
+                # Mantém só os últimos 30 dias
+                if len(self.historico) > 30:
+                    self.historico.pop(0)
+            
+            # Reseta
+            self.dia = hoje
+            self.total_sinais = 0
+            self.wins = 0
+            self.losses = 0
+            self.winrate = 0.0
+            self.sequencia_wins = 0
+            self.sequencia_losses = 0
+            self.ganho_total = 0.0
+            self.ultimo_resultado = None
+            return True
+        return False
+    
+    def registrar_resultado(self, resultado, ganho):
+        """Registra um resultado (WIN ou LOSS)"""
+        self.total_sinais += 1
+        self.ganho_total += ganho
+        
+        if resultado == "WIN":
+            self.wins += 1
+            self.sequencia_wins += 1
+            self.sequencia_losses = 0
+            if self.sequencia_wins > self.maior_sequencia_wins:
+                self.maior_sequencia_wins = self.sequencia_wins
+        else:
+            self.losses += 1
+            self.sequencia_losses += 1
+            self.sequencia_wins = 0
+            if self.sequencia_losses > self.maior_sequencia_losses:
+                self.maior_sequencia_losses = self.sequencia_losses
+        
+        self.winrate = (self.wins / self.total_sinais) * 100 if self.total_sinais > 0 else 0
+        
+        # Verifica se atingiu new record
+        if resultado == "WIN":
+            if self.sequencia_wins >= 5:
+                enviar_telegram(f"🔥 RECORDE! {self.sequencia_wins} WINS CONSECUTIVOS!")
+        
+        if self.total_sinais > 0 and self.total_sinais % 10 == 0:
+            enviar_telegram(f"📊 METAS ALCANÇADAS! {self.total_sinais} sinais - {self.winrate:.1f}% de acerto")
+        
+        return resultado
+    
+    def get_status(self):
+        """Retorna status formatado"""
+        return f"""
+📊 ESTATÍSTICAS DO DIA
+─────────────────────────
+📈 Total Sinais: {self.total_sinais}
+🟢 Wins: {self.wins}  🔴 Losses: {self.losses}
+🎯 Winrate: {self.winrate:.1f}%
+💰 Ganho Total: {self.ganho_total:.2f}%
+🔥 Maior Sequência Wins: {self.maior_sequencia_wins}
+📉 Maior Sequência Losses: {self.maior_sequencia_losses}
+"""
+    
+    def get_historico(self):
+        """Retorna histórico"""
+        if not self.historico:
+            return "📊 Nenhum histórico disponível ainda"
+        
+        texto = "📊 HISTÓRICO DOS ÚLTIMOS DIAS\n"
+        texto += "─────────────────────────\n"
+        for dia in self.historico[-10:]:
+            texto += f"{dia['dia']}: {dia['sinais']} sinais - {dia['winrate']:.1f}%\n"
+        return texto
+
+# ============================================
+# MAIN
+# ============================================
+
+estatisticas = Estatisticas()
 
 # Variáveis
 operacao_ativa = False
@@ -52,12 +158,13 @@ class RoboTrader:
     def __init__(self):
         self.voz = VoiceAlert(VOZ_IDIOMA)
         self.memoria = MemoryManager()
-        self.sinais_dia = 0
-        self.wins = 0
-        self.losses = 0
         self.nivel_aprendizado = 50.0
     
     def executar(self):
+        global operacao_ativa, horario_entrada, timeframe_entrada
+        global ativo_entrada, direcao_entrada, preco_entrada
+        global alerta_disparado, entrada_confirmada, resultado_mostrado
+        
         print(Fore.GREEN + "\n🚀 INICIANDO AGENTE ESTUDIOSO...")
         print(Fore.WHITE + f"🧠 Nível: {self.nivel_aprendizado}%\n")
         
@@ -71,6 +178,12 @@ class RoboTrader:
         
         while True:
             try:
+                # Reset diário
+                if estatisticas.resetar_diario():
+                    msg = f"🔄 RESET DIÁRIO\n{estatisticas.get_status()}"
+                    enviar_telegram(msg)
+                    print(Fore.YELLOW + "\n🔄 RESET DIÁRIO REALIZADO!")
+                
                 if not operacao_ativa:
                     self.buscar_sinais()
                 
@@ -104,14 +217,12 @@ class RoboTrader:
         
         agora = datetime.now()
         
-        # Gera horário de entrada (próximo múltiplo de 5)
         minuto_atual = int(agora.strftime("%M"))
         minuto_arredondado = ((minuto_atual // 5) + 1) * 5
         if minuto_arredondado >= 60:
             minuto_arredondado = 0
         horario_arredondado = f"{agora.strftime('%H')}:{minuto_arredondado:02d}"
         
-        # Gera sinal aleatório (simulado)
         ativo = random.choice(ATIVOS)
         timeframe = random.choice(TIMEFRAMES)
         direcao = random.choice(["COMPRA", "VENDA"])
@@ -123,12 +234,22 @@ class RoboTrader:
             if time.time() - ultimo_sinal_tempo < 60:
                 return
             
-            # Mostra sinal no terminal
+            # Mostra sinal
             self.mostrar_sinal(ativo, horario_arredondado, timeframe, direcao, score, probabilidade, preco)
             
-            # ENVIA PARA TELEGRAM
+            # ENVIA PARA TELEGRAM - "ENTRADA CONFIRMADA"
             seta = "🟢" if direcao == "COMPRA" else "🔴"
-            msg = f"🎯 SINAL DETECTADO!\n📊 {ativo}\n⏰ {horario_arredondado}\n📈 {timeframe}min\n{seta} {direcao}\n⭐ Score: {score}%\n💰 {preco:.5f}"
+            msg = f"""
+✅ ENTRADA CONFIRMADA
+─────────────────────────
+📊 ATIVO: {ativo}
+⏰ EXPIRAÇÃO: M{timeframe}
+{seta} DIREÇÃO: {direcao}
+⏰ ENTRADA: {horario_arredondado}
+─────────────────────────
+💰 PREÇO: {preco:.5f}
+⭐ SCORE: {score}%
+"""
             enviar_telegram(msg)
             
             self.sinais_dia += 1
@@ -183,15 +304,10 @@ class RoboTrader:
             entrada_confirmada = True
             
             print(Fore.GREEN + "\n" + "=" * 70)
-            print(Fore.GREEN + "✅ ENTRADA CONFIRMADA!")
+            print(Fore.GREEN + "✅ ENTRADA EXECUTADA!")
             print(Fore.YELLOW + "=" * 70)
             
             self.voz.alertar_confirmacao(ativo_entrada, direcao_entrada, preco_entrada)
-            
-            # ENVIA CONFIRMAÇÃO PARA TELEGRAM
-            seta = "🟢" if direcao_entrada == "COMPRA" else "🔴"
-            msg = f"✅ ENTRADA CONFIRMADA!\n📊 {ativo_entrada} {seta} {direcao_entrada}\n💰 {preco_entrada:.5f}"
-            enviar_telegram(msg)
             
             print(Fore.WHITE + f"   📊 {ativo_entrada} {direcao_entrada}")
             print(Fore.WHITE + f"   💰 Preço: {preco_entrada:.5f}")
@@ -212,28 +328,51 @@ class RoboTrader:
         if minutos_passados > int(timeframe_entrada) + 1:
             resultado_mostrado = True
             
+            # Simula resultado
             ganho = random.uniform(-2.0, 3.0)
             resultado = "WIN" if ganho > 0 else "LOSS"
             
-            if resultado == "WIN":
-                self.wins += 1
-            else:
-                self.losses += 1
+            # Registra nas estatísticas
+            estatisticas.registrar_resultado(resultado, ganho)
             
             preco_saida = preco_entrada * (1 + ganho/100)
             
+            # Exibe no terminal
             self.voz.alertar_resultado(
                 ativo_entrada, direcao_entrada, resultado,
                 preco_entrada, preco_saida, ganho
             )
             
-            # ENVIA RESULTADO PARA TELEGRAM
+            # ============================================
+            # ENVIA RESULTADO PARA TELEGRAM - IGUAL À IMAGEM!
+            # ============================================
             emoji = "🎉" if resultado == "WIN" else "😞"
-            msg = f"{emoji} {resultado}!\n📊 {ativo_entrada} {direcao_entrada}\n💰 Ganho: {ganho:.2f}%\n📊 W/L: {self.wins}/{self.losses}"
+            status = "✅ GAIN" if resultado == "WIN" else "❌ LOSS"
+            
+            msg = f"""
+{emoji} {status} ✔️
+─────────────────────────
+📊 ATIVO: {ativo_entrada}
+⏰ EXPIRAÇÃO: M{timeframe_entrada}
+📈 DIREÇÃO: {direcao_entrada}
+⏰ ENTRADA: {horario_entrada}
+─────────────────────────
+💰 ENTRADA: {preco_entrada:.5f}
+💰 SAÍDA: {preco_saida:.5f}
+📊 GANHO: {ganho:.2f}%
+─────────────────────────
+📊 W/L: {estatisticas.wins}/{estatisticas.losses}
+🎯 WINRATE: {estatisticas.winrate:.1f}%
+"""
             enviar_telegram(msg)
             
+            # Envia estatísticas a cada 5 operações
+            if estatisticas.total_sinais % 5 == 0:
+                enviar_telegram(estatisticas.get_status())
+            
             print(Fore.CYAN + "─" * 70)
-            print(Fore.WHITE + f"📊 Total hoje: {self.sinais_dia} sinais | {Fore.GREEN}{self.wins}W {Fore.RED}{self.losses}L")
+            print(Fore.WHITE + f"📊 Total hoje: {estatisticas.total_sinais} sinais | {Fore.GREEN}{estatisticas.wins}W {Fore.RED}{estatisticas.losses}L")
+            print(Fore.WHITE + f"🎯 Winrate: {estatisticas.winrate:.1f}%")
             print(Fore.CYAN + "═" * 70 + "\n")
             
             operacao_ativa = False
