@@ -18,7 +18,7 @@ from voice_alert import VoiceAlert
 from memory_manager import MemoryManager
 
 # ============================================
-# TELEGRAM (JÁ CONFIGURADO)
+# TELEGRAM
 # ============================================
 TOKEN_TELEGRAM = "8505784675:AAFc0V-KyhhVThxSSAaBfrDtNDI5ed3ilo0"  
 CHAT_ID = "999294230"
@@ -36,7 +36,7 @@ def enviar_telegram(msg):
 ativo_focado = random.choice(ATIVOS)
 data_atual = datetime.now().strftime("%Y-%m-%d")
 
-enviar_telegram(f"🎯 ATIVO DO DIA: {ativo_focused}\n📅 {datetime.now().strftime('%d/%m/%Y')}")
+enviar_telegram(f"🎯 ATIVO DO DIA: {ativo_focado}\n📅 {datetime.now().strftime('%d/%m/%Y')}")
 
 # ============================================
 # VARIÁVEIS DE CONTROLE
@@ -68,7 +68,6 @@ class RoboTrader:
         
         while True:
             try:
-                # VERIFICA SE MUDOU O DIA
                 hoje = datetime.now().strftime("%Y-%m-%d")
                 if hoje != data_atual:
                     data_atual = hoje
@@ -76,11 +75,9 @@ class RoboTrader:
                     enviar_telegram(f"🔄 NOVO DIA!\n🎯 ATIVO: {ativo_focado}")
                     print(Fore.YELLOW + f"\n🔄 NOVO ATIVO: {ativo_focado}")
                 
-                # SÓ GERA SINAL SE NÃO TIVER OPERAÇÃO ATIVA
                 if not operacao_ativa:
                     self.buscar_sinais()
                 
-                # GERENCIA A OPERAÇÃO
                 if operacao_ativa and not alerta_disparado:
                     self.verificar_alerta()
                 
@@ -108,15 +105,12 @@ class RoboTrader:
         agora = datetime.now()
         minuto = int(agora.strftime("%M"))
         
-        # SÓ GERA NOS MINUTOS 0, 5, 10, 15...
         if minuto % 5 != 0:
             return
         
-        # 1 SINAL POR MINUTO
         if time.time() - ultimo_sinal_tempo < 60:
             return
         
-        # ESCOLHE O TIMEFRAME
         if minuto % 30 == 0:
             tf = "30"
         elif minuto % 15 == 0:
@@ -128,7 +122,6 @@ class RoboTrader:
         preco = round(random.uniform(1.0, 2.0), 5)
         score = random.randint(75, 95)
         
-        # MOSTRA NO TERMINAL
         print(Fore.CYAN + "═" * 70)
         print(Fore.GREEN + "🎯 SINAL DETECTADO")
         print(Fore.CYAN + "─" * 70)
@@ -140,7 +133,6 @@ class RoboTrader:
         print(Fore.WHITE + f"   Preço:     {Fore.GREEN}{preco:.5f}")
         print(Fore.CYAN + "═" * 70)
         
-        # ENVIA TELEGRAM
         seta = "🟢" if direcao == "COMPRA" else "🔴"
         msg = f"""
 🎯 ATIVO FOCADO: {ativo_focado}
