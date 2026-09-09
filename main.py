@@ -319,4 +319,4 @@ if __name__ == "__main__":
     try:
         Robo().run()
     except Exception as e:
-        print(Fore.RED + f"❌ ERRO FATAL: {e}")
+        print(Fore.RED + f"❌ ERRO FATAL: {e}")Flask==3.0.0
