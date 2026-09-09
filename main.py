@@ -297,7 +297,24 @@ class Robo:
             alerta = False
             confirmado = False
             resultado_mostrado = False
+# ============================================
+# SERVIDOR WEB MÍNIMO PARA KEEP-ALIVE
+# ============================================
+from flask import Flask
+import threading
 
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Robô está rodando!", 200
+
+def run_server():
+    app.run(host='0.0.0.0', port=10000)
+
+# Inicia o servidor em uma thread separada
+threading.Thread(target=run_server, daemon=True).start()
+# ============================================
 if __name__ == "__main__":
     try:
         Robo().run()
