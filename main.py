@@ -1,17 +1,46 @@
 """
-AGENTE ESTUDIOSO - VERSÃO INTELIGENTE
-Analisa todos, escolhe o melhor, foca nele até terminar
+AGENTE ESTUDIOSO - VERSÃO DEFINITIVA
+COM FLASK EMBUTIDO - NUNCA DORME!
 """
 
-import os, time, random, requests
+import os
+import time
+import random
+import requests
+import threading
 from datetime import datetime, timedelta, timezone
 import colorama
 from colorama import Fore
+
 colorama.init(autoreset=True)
 
 from config import *
 from voice_alert import VoiceAlert
 from memory_manager import MemoryManager
+
+# ============================================
+# SERVIDOR FLASK - MANTÉM O ROBÔ ACORDADO!
+# ============================================
+try:
+    from flask import Flask
+    app = Flask('')
+    
+    @app.route('/')
+    def home():
+        return "🤖 Robô está rodando!", 200
+    
+    @app.route('/health')
+    def health():
+        return "OK", 200
+    
+    def run_server():
+        app.run(host='0.0.0.0', port=10000, debug=False, use_reloader=False)
+    
+    # Inicia o servidor em uma thread separada
+    threading.Thread(target=run_server, daemon=True).start()
+    print(Fore.GREEN + "🔄 Servidor Flask iniciado na porta 10000")
+except Exception as e:
+    print(Fore.YELLOW + f"⚠️ Flask não iniciou: {e}")
 
 # ============================================
 # HORÁRIO BRASÍLIA
@@ -62,6 +91,7 @@ def melhor_ativo():
 # ============================================
 ativo_atual, score_atual = melhor_ativo()
 print(Fore.GREEN + f"🏆 MELHOR ATIVO AGORA: {ativo_atual} ({score_atual:.1f}%)")
+tel(f"🤖 ROBÔ INICIADO!\n🏆 MELHOR ATIVO: {ativo_atual} ({score_atual:.1f}%)")
 
 # ============================================
 # CONTROLE
@@ -88,15 +118,15 @@ class Robo:
         global alerta, confirmado, resultado_mostrado, ultimo_sinal, wins, losses
         global ativo_atual, score_atual
         
-        print(Fore.GREEN + "\n🧠 ROBÔ INTELIGENTE INICIADO!")
+        print(Fore.CYAN + "═" * 70)
+        print(Fore.GREEN + "🧠 ROBÔ INTELIGENTE EM EXECUÇÃO!")
         print(Fore.CYAN + "═" * 70 + "\n")
-        tel("🧠 ROBÔ INICIADO! Analisando mercado...")
         
         while True:
             try:
                 agora = agora_br()
                 
-                # SEMPRE ANALISA O MELHOR ATIVO (mesmo durante operação)
+                # SEMPRE ANALISA O MELHOR ATIVO
                 melhor, score = melhor_ativo()
                 
                 # SE MUDOU E NÃO TEM OPERAÇÃO, AVISA
@@ -123,7 +153,7 @@ class Robo:
                 if op and hr_entrada:
                     self.expiracao(agora)
                 
-                # MOSTRA STATUS A CADA 30s
+                # STATUS A CADA 30s
                 if int(time.time()) % 30 == 0 and not op:
                     print(Fore.CYAN + "─" * 70)
                     print(Fore.WHITE + f"📊 ANALISANDO... Melhor: {Fore.GREEN}{ativo_atual} ({score_atual:.1f}%)")
@@ -153,11 +183,10 @@ class Robo:
         
         dir_ = random.choice(["COMPRA", "VENDA"])
         preco = round(random.uniform(1.0, 2.0), 5)
-        score_real = random.randint(75, 95)
         hora = agora.strftime("%H:%M")
         
         print(Fore.CYAN + "═" * 70)
-        print(Fore.GREEN + f"🎯 ENTRADA - {ativo} ({score_real}%)")
+        print(Fore.GREEN + f"🎯 ENTRADA - {ativo} ({score:.1f}%)")
         print(Fore.CYAN + "─" * 70)
         print(Fore.WHITE + f"   Entrada:   {Fore.YELLOW}{hora}")
         print(Fore.WHITE + f"   Timeframe: {Fore.YELLOW}{tf}min")
@@ -229,7 +258,7 @@ class Robo:
             ganho = random.uniform(-2.0, 3.0)
             res = "WIN" if ganho > 0 else "LOSS"
             
-            # ATUALIZA HISTÓRICO DO ATIVO
+            # ATUALIZA HISTÓRICO
             if res == "WIN":
                 wins += 1
                 historico[ativo_entrada]['wins'] += 1
@@ -265,7 +294,7 @@ class Robo:
 📊 W/L: {wins}/{losses}
 """)
             
-            # APÓS A OPERAÇÃO, ANALISA NOVO MELHOR ATIVO
+            # PRÓXIMO MELHOR ATIVO
             novo_ativo, novo_score = melhor_ativo()
             ativo_atual = novo_ativo
             print(Fore.GREEN + f"\n🏆 PRÓXIMO MELHOR: {novo_ativo} ({novo_score:.1f}%)")
@@ -297,26 +326,10 @@ class Robo:
             alerta = False
             confirmado = False
             resultado_mostrado = False
-# ============================================
-# SERVIDOR WEB MÍNIMO PARA KEEP-ALIVE
-# ============================================
-from flask import Flask
-import threading
 
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Robô está rodando!", 200
-
-def run_server():
-    app.run(host='0.0.0.0', port=10000)
-
-# Inicia o servidor em uma thread separada
-threading.Thread(target=run_server, daemon=True).start()
-# ============================================
 if __name__ == "__main__":
     try:
-        Robo().run()
+        robo = Robo()
+        robo.run()
     except Exception as e:
-        print(Fore.RED + f"❌ ERRO FATAL: {e}")Flask==3.0.0
+        print(Fore.RED + f"❌ ERRO FATAL: {e}")
